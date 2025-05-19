@@ -1,0 +1,123 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RayChat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #messages {
+            height: 300px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        #message-form {
+            display: flex;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 8px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>RayChat</h1>
+    
+    <div>
+        <label for="uuid-input">Your UUID:</label>
+        <input type="text" id="uuid-input" placeholder="Enter your UUID">
+        <button id="connect-btn">Connect</button>
+    </div>
+    
+    <div>
+        <label for="receiver-input">Recipient UUID:</label>
+        <input type="text" id="receiver-input" placeholder="Enter recipient UUID">
+    </div>
+    
+    <div id="messages"></div>
+    
+    <form id="message-form">
+        <input type="text" id="message-input" placeholder="Type a message..." disabled>
+        <button type="submit" id="send-btn" disabled>Send</button>
+    </form>
+    
+    <script>
+        let ws;
+        const messagesDiv = document.getElementById('messages');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const uuidInput = document.getElementById('uuid-input');
+        const receiverInput = document.getElementById('receiver-input');
+        const connectBtn = document.getElementById('connect-btn');
+        const sendBtn = document.getElementById('send-btn');
+        
+        // Replace the WebSocket connection code with this:
+connectBtn.addEventListener('click', () => {
+    const uuid = uuidInput.value.trim();
+    if (!uuid) {
+        alert('Please enter your UUID');
+        return;
+    }
+    
+    // Create a custom URL with the UUID as a query parameter instead
+    ws = new WebSocket(`ws://${window.location.host}/chat/ws?uuid=${encodeURIComponent(uuid)}`);
+    
+    ws.onopen = () => {
+        addMessage('System', 'Connected to chat server');
+        messageInput.disabled = false;
+        sendBtn.disabled = false;
+        connectBtn.disabled = true;
+        uuidInput.disabled = true;
+    };
+
+    ws.onmessage = (event) => {
+    const message = JSON.parse(event.data);
+    if (message.sender_uuid === myUuid) {
+        addMessage('You', message.content);
+    } else {
+        addMessage(message.sender_uuid, message.content);
+    }
+};
+
+    
+    // Rest of the code remains the same...
+});
+
+        
+        messageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const content = messageInput.value.trim();
+            const receiverUUID = receiverInput.value.trim();
+            
+            if (!content || !receiverUUID) {
+                alert('Please enter a message and recipient UUID');
+                return;
+            }
+            
+            const message = {
+                receiver_uuid: receiverUUID,
+                content: content
+            };
+            
+            ws.send(JSON.stringify(message));
+            addMessage('You', content);
+            messageInput.value = '';
+        });
+        
+        function addMessage(sender, content) {
+            const messageElement = document.createElement('div');
+            messageElement.innerHTML = `<strong>${sender}:</strong> ${content}`;
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
