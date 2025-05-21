@@ -2,3 +2,4 @@ pd
 proto
 .env
 chat_server
+non_static_room

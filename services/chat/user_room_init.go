@@ -1,20 +1,21 @@
 package chat
 
 import (
+	"raychat/models"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-func NewUser(username string) *User {
-	return &User{
+func NewUser(username string) *models.User {
+	return &models.User{
 		ID:       uuid.New().String(),
 		UserName: username,
 	}
 }
 
-func NewRoom(name string, cretorID string, isPrivate bool) *Room {
-	return &Room{
+func NewRoom(name string, cretorID string, isPrivate bool) *models.Room {
+	return &models.Room{
 		ID:                uuid.New().String(),
 		Name:              name,
 		CreatorID:         cretorID,
@@ -27,13 +28,13 @@ func NewRoom(name string, cretorID string, isPrivate bool) *Room {
 }
 
 // NewMessage creates a new message, though this should not be needed in use,
-func NewMessage(roomID, senderID, content, msgType string) *Message {
-	return &Message{
+func NewMessage(roomID, senderID, content, msgType string) *models.Message {
+	return &models.Message{
 		ID:        uuid.New().String(),
 		RoomID:    roomID,
 		SenderID:  senderID,
 		Content:   content,
 		Type:      msgType,
-		Timestamp: time.Now(),
+		Timestamp: time.Now().Unix(),
 	}
 }

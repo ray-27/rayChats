@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"raychat/config"
+	db "raychat/database"
 	"raychat/handler"
 	"raychat/services/chat"
 )
@@ -18,8 +19,10 @@ func main() {
 	}
 	println("Server init done")
 
+	db.DB_init()
+	println("Database init done.")
+
 	chat.Chat_init()
-	println("Chat service running...")
 
 	// Set up HTTP routes
 	handler.Handles(server.Router)

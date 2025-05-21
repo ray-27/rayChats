@@ -2,7 +2,7 @@
 package handler
 
 import (
-	"raychat/services/auth"
+	"raychat/services/chat"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,14 +30,16 @@ func Handles(router *gin.Engine) {
 		c.File("./static/index.html")
 	})
 
-	chatGroup := router.Group("/chat")
-	chatGroup.Use(auth.AuthRequired())
-	{
-		// router.POST("/api/rooms", chat.CreateRoomHandler)
-		// router.GET("/api/rooms", chat.GetRoomsHandler)
-		// router.POST("/api/rooms/:roomID/join", chat.JoinRoomHandler)
+	chat.RegisterChatRoutes(router)
 
-		// // WebSocket endpoint
-		// router.GET("/ws", chat.WebSocketHandler)
-	}
+	// chatGroup := router.Group("/chat")
+	// chatGroup.Use(auth.AuthRequired())
+	// {
+	// 	// router.POST("/api/rooms", chat.CreateRoomHandler)
+	// 	// router.GET("/api/rooms", chat.GetRoomsHandler)
+	// 	// router.POST("/api/rooms/:roomID/join", chat.JoinRoomHandler)
+
+	// 	// // WebSocket endpoint
+	// 	// router.GET("/ws", chat.WebSocketHandler)
+	// }
 }

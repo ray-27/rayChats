@@ -1,41 +1,30 @@
-// pkg/models/models.go
 package models
 
-import (
-	"time"
-
-	"github.com/google/uuid"
-)
+import "time"
 
 type User struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
+	ID       string          `json:"uuid"`
+	UserName string          `json:"username"`
+	Rooms    map[string]bool `json:"rooms"` // Map of room IDs the user belongs to
+}
+
+// Room represent a chat room
+type Room struct {
+	ID                string          `json:"id"`
+	Name              string          `json:"name"`
+	CreatorID         string          `json:"creator_id"`
+	AuthorizedMembers map[string]bool `json:"members"`
+	ActiveMembers     map[string]bool `json:"active_members"`
+	Admins            map[string]bool // Users with admin privileges
+	IsPrivate         bool            `json:"is_private"`
+	CreatedAt         time.Time
 }
 
 type Message struct {
-	ID        string    `json:"id"`
-	RoomID    string    `json:"room_id"`
-	SenderID  string    `json:"sender_id"`
-	Content   string    `json:"content"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
-type Room struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	CreatorID string    `json:"creator_id"`
-	MemberIDs []string  `json:"member_ids"`
-	IsPrivate bool      `json:"is_private"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-func NewRoom(name string, creatorID string, isPrivate bool) *Room {
-	return &Room{
-		ID:        uuid.New().String(),
-		Name:      name,
-		CreatorID: creatorID,
-		MemberIDs: []string{creatorID},
-		IsPrivate: isPrivate,
-		CreatedAt: time.Now(),
-	}
+	ID        string `json:"id"`
+	RoomID    string `json:"room_id"`
+	SenderID  string `json:"sender_id"`
+	Content   string `json:"content"`
+	Type      string `json:"type"`
+	Timestamp int64  `json:"timestamp,omitempty"`
 }

@@ -2,6 +2,8 @@ package chat
 
 import (
 	"log"
+	db "raychat/database"
+	"raychat/models"
 	"sync"
 )
 
@@ -14,22 +16,24 @@ It maintains:
 - Channels for communication between different parts of the system
 */
 type ChatManager struct {
-	Rooms      map[string]*Room
+	Rooms      map[string]*models.Room
 	Clients    map[string]*Client //client are the users which are online
-	Broadcast  chan *Message
+	Broadcast  chan *models.Message
 	Register   chan *Client
 	Unregister chan *Client
 	mutex      sync.RWMutex
+	Store      *db.ValkeyChatStore
 }
 
 // NewChatManager creates a new chat manager
 func NewChatManager() *ChatManager {
 	return &ChatManager{
-		Rooms:      make(map[string]*Room),
+		Rooms:      make(map[string]*models.Room),
 		Clients:    make(map[string]*Client),
-		Broadcast:  make(chan *Message),
+		Broadcast:  make(chan *models.Message),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
+		Store:      db.Store,
 	}
 }
 
@@ -53,6 +57,10 @@ func (cm *ChatManager) Start() {
 				for roomID := range client.Rooms {
 					if room, exists := cm.Rooms[roomID]; exists {
 						delete(room.ActiveMembers, client.UserID) //delete from the room
+						// Update Valkey
+						if err := cm.Store.SetUserInactive(client.UserID, roomID); err != nil {
+							log.Printf("Error marking user inactive: %v", err)
+						}
 						log.Printf("Removed Client %s, from room %s", client.UserID, roomID)
 					}
 				}
@@ -95,19 +103,31 @@ func (cm *ChatManager) Start() {
 }
 
 // CreateRoom creates a new chat room
-func (cm *ChatManager) CreateRoom(name string, creatorID string, isPrivate bool) *Room {
+func (cm *ChatManager) CreateRoom(name string, creatorID string, isPrivate bool) *models.Room {
 	room := NewRoom(name, creatorID, isPrivate) // create a new room
 
 	cm.mutex.Lock()
 	cm.Rooms[room.ID] = room // add the room to the ChatManager
 	cm.mutex.Unlock()
 
+	// Save room to Valkey for persistence
+	if err := cm.Store.SaveRoom(room); err != nil {
+		log.Printf("Error saving room to Valkey: %v", err)
+	} else {
+		log.Printf("Room saved to persistent storage: %s", room.ID)
+	}
+
+	// Add creator to room's authorized members in Valkey
+	if err := cm.Store.AddUserToRoom(creatorID, room.ID); err != nil {
+		log.Printf("Error adding creator to room in Valkey: %v", err)
+	}
+
 	log.Printf("Created room: %s, creator: %s", room.ID, creatorID)
 	return room
 }
 
 // GetRoom returns a room by ID
-func (cm *ChatManager) GetRoom(roomID string) (*Room, bool) {
+func (cm *ChatManager) GetRoom(roomID string) (*models.Room, bool) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
@@ -115,7 +135,6 @@ func (cm *ChatManager) GetRoom(roomID string) (*Room, bool) {
 	return room, exists
 }
 
-// JoinRoom adds a user to a room
 // JoinRoom adds a user to a room if they are authorized
 func (cm *ChatManager) JoinRoom(roomID, userID string) bool {
 	cm.mutex.Lock()
@@ -128,15 +147,33 @@ func (cm *ChatManager) JoinRoom(roomID, userID string) bool {
 
 	// Check if the room is private and if the user is authorized
 	if room.IsPrivate {
-		if _, authorized := room.AuthorizedMembers[userID]; !authorized {
-			log.Printf("User %s attempted to join private room %s but is not authorized",
-				userID, roomID)
-			return false
+		// Check if user is authorized
+		authorized, err := db.Store.IsUserAuthorizedForRoom(userID, roomID)
+		if err != nil || !authorized {
+			if _, ok := room.AuthorizedMembers[userID]; !ok {
+				log.Printf("User %s not authorized for private room %s", userID, roomID)
+				return false
+			}
+		}
+	}
+
+	// Add to authorized members if not already
+	if _, ok := room.AuthorizedMembers[userID]; !ok {
+		room.AuthorizedMembers[userID] = true
+
+		// Update in Valkey
+		if err := db.Store.AddUserToRoom(userID, roomID); err != nil {
+			log.Printf("Error adding user to room in Valkey: %v", err)
 		}
 	}
 
 	// Add to active members
 	room.ActiveMembers[userID] = true
+
+	// Update in Valkey
+	if err := db.Store.SetUserActive(userID, roomID); err != nil {
+		log.Printf("Error setting user active in Valkey: %v", err)
+	}
 
 	log.Printf("User %s joined room %s, room now has %d active members",
 		userID, roomID, len(room.ActiveMembers))
@@ -155,7 +192,8 @@ func (cm *ChatManager) AddAuthorizedMember(roomID, userID, requestedByID string)
 	}
 
 	// Check if the requesting user has permission (owner or admin)
-	if room.CreatorID != requestedByID && !room.Admins[requestedByID] {
+	// if room.CreatorID != requestedByID && !room.Admins[requestedByID] {
+	if !room.Admins[requestedByID] { // only check if the admin has sent the request
 		log.Printf("User %s attempted to add member to room %s but lacks permission",
 			requestedByID, roomID)
 		return false
