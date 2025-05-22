@@ -100,12 +100,47 @@ func HandleWebSocket(c *gin.Context) {
 	HandleWebSocketConnection(userID, userName, conn)
 }
 
+func HandleAddUsertoRoom(c *gin.Context) {
+	var req struct {
+		UserID        string `json:"uuid" binding:"required"`     //senders uuid, admin
+		RoomID        string `json:"roomname" binding:"required"` //room_id to add user to
+		SecondUser_id string `json:"guest" binding:"required"`    //guest user to add to the room
+		IsPrivate     bool   `json:"is_private"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	userID := req.UserID
+
+	// Use the exported CreateRoom function, this creates a room with the user who created it
+	// AddAuthorizedMember
+	// room := CreateRoom(req.RoomName, userID, req.IsPrivate)
+
+	//add the guest user
+	success := AddAuthorizedMember(req.RoomID, req.SecondUser_id, userID)
+
+	if !success {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Erro occured in the HAnDLECREAateROOM",
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"user":    req.SecondUser_id,
+		"message": "successfuly added user to the room",
+	})
+}
+
 // RegisterChatRoutes registers all chat-related routes
 func RegisterChatRoutes(router *gin.Engine) {
 	chatGroup := router.Group("/")
 	{
 		chatGroup.GET("/rooms/:roomId", HandleGetRoom)
 		chatGroup.POST("/createroom", HandleCreateRoom)
+		chatGroup.POST("/addusertoroom", HandleAddUsertoRoom)
 		chatGroup.GET("/ws", HandleWebSocket)
 		// Add more routes as needed
 	}

@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"raychat/services/auth"
 	"raychat/services/chat"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,9 @@ func Handles(router *gin.Engine) {
 	router.GET("/", func(c *gin.Context) {
 		c.File("./static/index.html")
 	})
+
+	router.POST("/login", auth.LoginCLI)
+	router.POST("/signup", auth.SignupCLI)
 
 	chat.RegisterChatRoutes(router)
 
