@@ -40,7 +40,7 @@ type Client struct {
 // NewClient creates a new chat client
 func NewClient(userID, userName string, conn *websocket.Conn, manager *ChatManager) *Client {
 	return &Client{
-		ID:       uuid.New().String(),
+		ID:       userID,
 		UserID:   userID,
 		UserName: userName,
 		Conn:     conn,

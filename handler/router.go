@@ -31,19 +31,15 @@ func Handles(router *gin.Engine) {
 		c.File("./static/index.html")
 	})
 
-	router.POST("/login", auth.LoginCLI)
-	router.POST("/signup", auth.SignupCLI)
+	router.POST("cli/login", auth.LoginCLI)
+	router.POST("cli/signup", auth.SignupCLI)
+
+	cliGroup := router.Group("/cli")
+	cliGroup.Use(auth.AuthRequired())
+	{
+		cliGroup.GET("/validatetoken", auth.ValidateToken)
+		cliGroup.GET("/userinfo", auth.GetUserInfo)
+	}
 
 	chat.RegisterChatRoutes(router)
-
-	// chatGroup := router.Group("/chat")
-	// chatGroup.Use(auth.AuthRequired())
-	// {
-	// 	// router.POST("/api/rooms", chat.CreateRoomHandler)
-	// 	// router.GET("/api/rooms", chat.GetRoomsHandler)
-	// 	// router.POST("/api/rooms/:roomID/join", chat.JoinRoomHandler)
-
-	// 	// // WebSocket endpoint
-	// 	// router.GET("/ws", chat.WebSocketHandler)
-	// }
 }

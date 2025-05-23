@@ -5,6 +5,22 @@ import (
 	"raychat/models"
 )
 
+// Add this method to your ValkeyChatStore
+func (store *ValkeyChatStore) GetUserByUUID(uuid string) (*models.UserCred, error) {
+	// Get user data by UUID
+	userData, err := store.Client.Get(store.Ctx, "user:"+uuid).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var user models.UserCred
+	if err := json.Unmarshal([]byte(userData), &user); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 func (store *ValkeyChatStore) SaveUserCredentials(user *models.UserCred) error {
 	// Convert user to JSON
 	userJSON, err := json.Marshal(user)
@@ -43,3 +59,4 @@ func (store *ValkeyChatStore) GetUserByEmail(email string) (*models.UserCred, er
 
 	return &user, nil
 }
+

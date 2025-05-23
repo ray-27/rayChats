@@ -4,6 +4,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"raychat/models"
 	"strings"
 
@@ -161,4 +162,97 @@ func (s *ValkeyChatStore) GetRoomAuthorizedMembers(roomID string) ([]string, err
 func (s *ValkeyChatStore) GetRoomAdmins(roomID string) ([]string, error) {
 	key := "chat:room:" + roomID + ":admins"
 	return s.Client.SMembers(s.Ctx, key).Result()
+}
+
+
+// AddAdminToRoom adds a user as admin to a room
+func (s *ValkeyChatStore) AddAdminToRoom(userID, roomID string) error {
+	// Add user as authorized member first
+	if err := s.AddUserToRoom(userID, roomID); err != nil {
+		return err
+	}
+
+	// Add user to room's admin list
+	roomAdminsKey := "chat:room:" + roomID + ":admins"
+	return s.Client.SAdd(s.Ctx, roomAdminsKey, userID).Err()
+}
+
+// IsUserAdmin checks if a user is an admin of a room
+func (s *ValkeyChatStore) IsUserAdmin(userID, roomID string) (bool, error) {
+	roomAdminsKey := "chat:room:" + roomID + ":admins"
+	return s.Client.SIsMember(s.Ctx, roomAdminsKey, userID).Result()
+}
+
+// GetUserUUIDByEmail returns the user UUID for a given email
+func (s *ValkeyChatStore) GetUserUUIDByEmail(email string) (string, error) {
+	userUUID, err := s.Client.Get(s.Ctx, "user:email:"+email).Result()
+	if err != nil {
+		return "", fmt.Errorf("user not found by email: %w", err)
+	}
+	return userUUID, nil
+}
+
+// GetRoomsForUser returns all rooms with details that a user is authorized for
+func (s *ValkeyChatStore) GetRoomsForUser(userID string) ([]*models.Room, error) {
+	// Get room IDs for the user
+	roomIDs, err := s.GetUserRooms(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	rooms := make([]*models.Room, 0, len(roomIDs))
+
+	for _, roomID := range roomIDs {
+		// Get room details
+		roomData, err := s.GetRoomDetails(roomID)
+		if err != nil {
+			continue // Skip rooms that can't be retrieved
+		}
+
+		// Parse the room data
+		room := &models.Room{
+			ID:        roomID,
+			Name:      roomData["name"],
+			CreatorID: roomData["creator_id"],
+			IsPrivate: roomData["is_private"] == "true",
+		}
+
+		// Parse created_at
+		if createdAtStr, exists := roomData["created_at"]; exists {
+			if createdAt, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
+				room.CreatedAt = createdAt
+			}
+		}
+
+		// Get authorized members
+		authMembers, err := s.GetRoomAuthorizedMembers(roomID)
+		if err == nil {
+			room.AuthorizedMembers = make(map[string]bool)
+			for _, member := range authMembers {
+				room.AuthorizedMembers[member] = true
+			}
+		}
+
+		// Get active members
+		activeMembers, err := s.GetActiveUsers(roomID)
+		if err == nil {
+			room.ActiveMembers = make(map[string]bool)
+			for _, member := range activeMembers {
+				room.ActiveMembers[member] = true
+			}
+		}
+
+		// Get admins
+		admins, err := s.GetRoomAdmins(roomID)
+		if err == nil {
+			room.Admins = make(map[string]bool)
+			for _, admin := range admins {
+				room.Admins[admin] = true
+			}
+		}
+
+		rooms = append(rooms, room)
+	}
+
+	return rooms, nil
 }
