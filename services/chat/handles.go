@@ -52,11 +52,11 @@ func HandleGetRoom(c *gin.Context) {
 func HandleCreateRoom(c *gin.Context) {
 	userUUID, _ := c.Get("userUUID")
 	userUUIDStr := userUUID.(string)
+
 	var req struct {
-		// UserID     string `json:"uuid" binding:"required"`
-		RoomName   string `json:"roomname" binding:"required"`
-		GuestEmail string `json:"guest_email" binding:"required"`
-		IsPrivate  bool   `json:"is_private"`
+		RoomName    string   `json:"roomname" binding:"required"`
+		GuestEmails []string `json:"guest_emails" binding:"required,dive,email"`
+		IsPrivate   bool     `json:"is_private"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -64,31 +64,51 @@ func HandleCreateRoom(c *gin.Context) {
 		return
 	}
 
-	// Get guest user UUID by email using existing function
-	guestUUID, err := db.Store.GetUserUUIDByEmail(req.GuestEmail)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Guest user not found with email: " + req.GuestEmail,
-		})
+	// Validate that at least one guest email is provided
+	if len(req.GuestEmails) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one guest email is required"})
 		return
 	}
 
 	// Create room with creator as admin
 	room := CreateRoom(req.RoomName, userUUIDStr, req.IsPrivate)
 
-	// Add guest user as authorized member using existing function
-	if err := db.Store.AddUserToRoom(guestUUID, room.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to add guest user to room",
-		})
-		return
+	// Track successful and failed additions
+	var successfulUsers []string
+	var failedUsers []string
+
+	// Add each guest user to the room
+	for _, email := range req.GuestEmails {
+		// Get guest user UUID by email
+		guestUUID, err := db.Store.GetUserUUIDByEmail(email)
+		if err != nil {
+			failedUsers = append(failedUsers, email)
+			continue
+		}
+
+		// Add guest user as authorized member
+		if err := db.Store.AddUserToRoom(guestUUID, room.ID); err != nil {
+			failedUsers = append(failedUsers, email)
+			continue
+		}
+
+		successfulUsers = append(successfulUsers, email)
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"room_id": room.ID,
-		"name":    room.Name,
-		"message": "Room created successfully and guest user added",
-	})
+	response := gin.H{
+		"room_id":          room.ID,
+		"name":             room.Name,
+		"successful_users": successfulUsers,
+	}
+
+	if len(failedUsers) > 0 {
+		response["failed_users"] = failedUsers
+		response["message"] = "Room created with some users added successfully"
+	} else {
+		response["message"] = "Room created successfully with all users added"
+	}
+
+	c.JSON(http.StatusCreated, response)
 }
 
 func HandleAddUsertoRoom(c *gin.Context) {

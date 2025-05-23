@@ -113,6 +113,15 @@ func LoginCLI(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	} else if existingUser == nil {
+		//send OTP to the email
+		success, otp, err := CallLambdaSendOTP(request.Email)
+
+		if success {
+			db.Store.StoreOTP(request.Email, otp)
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "acount does not exists, create account", "exists": "false"})
 	}
 
@@ -151,6 +160,43 @@ func LoginCLI(c *gin.Context) {
 	// 	"token":   token,
 	// 	"user":    newUser,
 	// })
+}
+
+func GetOTP(c *gin.Context) {
+	var req struct {
+		Email string `json:"email"`
+		OTP   string `json:"otp"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// getOTP, err := db.Store.GetOTP(req.Email)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{
+	// 		"error": err.Error(),
+	// 	})
+	// }
+
+	found, err := db.Store.VerifyAndDeleteOTP(req.Email, req.OTP)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+	}
+
+	if found {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "user verified",
+		})
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "user not verified",
+		})
+	}
+
 }
 
 // Helper function to generate JWT token
