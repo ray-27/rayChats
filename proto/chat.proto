@@ -1,0 +1,65 @@
+// proto/chat.proto
+syntax = "proto3";
+
+package chat;
+option go_package = "raychat/pb";
+
+import "google/protobuf/timestamp.proto";
+
+// User represents a chat user
+message User {
+  string uuid = 1;
+  string username = 2;
+  bool online = 3;
+}
+
+// Message represents a chat message
+message Message {
+  string id = 1;
+  string sender_uuid = 2;
+  string receiver_uuid = 3;
+  string content = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// Connection request to establish a stream
+message ConnectRequest {
+  string uuid = 1;
+}
+
+// Connection response
+message ConnectResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Send message request
+message SendMessageRequest {
+  string sender_uuid = 1;
+  string receiver_uuid = 2;
+  string content = 3;
+}
+
+// Send message response
+message SendMessageResponse {
+  bool delivered = 1;
+  string message_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// Service definition
+service ChatService {
+  // Stream for receiving messages
+  rpc Connect(ConnectRequest) returns (stream Message);
+  
+  // Send a message
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  
+  // Get online users
+  rpc GetOnlineUsers(ConnectRequest) returns (OnlineUsersResponse);
+}
+
+// Response with online users
+message OnlineUsersResponse {
+  repeated User users = 1;
+}

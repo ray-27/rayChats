@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	db "raychat/database"
-	"raychat/services/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -286,7 +285,7 @@ func HandleWebSocket(c *gin.Context) {
 // RegisterChatRoutes registers all chat-related routes
 func RegisterChatRoutes(router *gin.Engine) {
 	chatGroup := router.Group("/chat")
-	chatGroup.Use(auth.AuthRequired())
+	// chatGroup.Use(auth.AuthRequired())
 	{
 		chatGroup.GET("/rooms/:roomId", HandleGetRoom)
 		chatGroup.GET("/rooms", HandleListRooms)

@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"raychat/config"
 	db "raychat/database"
 	"raychat/handler"
@@ -27,7 +28,13 @@ func main() {
 	// Set up HTTP routes
 	handler.Handles(server.Router)
 
-	// Start gRPC server in a goroutine
+	config.Client, err = config.NewGrpcManager("api.resnight.tech")
+	if err != nil {
+		log.Fatalf("Failed to create gprc client manage: %v", err)
+	}
+	defer config.Client.Close()
+
+	println("gRPC server running...")
 
 	println("Server started....")
 	// Start HTTP server

@@ -34,13 +34,14 @@ func Handles(router *gin.Engine) {
 	router.POST("cli/login", auth.LoginCLI)
 	router.POST("cli/signup", auth.SignupCLI)
 	router.POST("cli/otp", auth.GetOTP)
-
 	cliGroup := router.Group("/cli")
 	cliGroup.Use(auth.AuthRequired())
 	{
 		cliGroup.GET("/validatetoken", auth.ValidateToken)
 		cliGroup.GET("/userinfo", auth.GetUserInfo)
 	}
+
+	router.POST("/login", auth.Login)
 
 	chat.RegisterChatRoutes(router)
 }
