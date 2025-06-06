@@ -3,6 +3,7 @@ package db
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"raychat/models"
@@ -23,6 +24,9 @@ func NewValkeyChatStore(addr string, password string, db int) *ValkeyChatStore {
 		Addr:     addr,
 		Password: password,
 		DB:       db, // Use a specific DB to isolate your chat app
+		TLSConfig: &tls.Config{
+			ServerName: strings.Split(addr, ":")[0],
+		}, 
 	})
 
 	return &ValkeyChatStore{
@@ -163,7 +167,6 @@ func (s *ValkeyChatStore) GetRoomAdmins(roomID string) ([]string, error) {
 	key := "chat:room:" + roomID + ":admins"
 	return s.Client.SMembers(s.Ctx, key).Result()
 }
-
 
 // AddAdminToRoom adds a user as admin to a room
 func (s *ValkeyChatStore) AddAdminToRoom(userID, roomID string) error {
