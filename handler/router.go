@@ -41,7 +41,11 @@ func Handles(router *gin.Engine) {
 		cliGroup.GET("/userinfo", auth.GetUserInfo)
 	}
 
-	router.POST("/login", auth.Login)
+	router.POST("app/login", auth.Login)
+	// app := router.Group("/app")
+	// {
+
+	// }
 
 	chat.RegisterChatRoutes(router)
 }

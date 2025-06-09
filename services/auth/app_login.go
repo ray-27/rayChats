@@ -19,9 +19,17 @@ type User struct {
 func Login(c *gin.Context) {
 
 	var req struct {
-		Token string `json"token" binding:"required"`
+		Token      string `json"token" binding:"required"`
+		AppVersion string `json"app_version" binding:"required"`
+		Provider   string `json"provider" binding:"required"`
+		TimeStamp  string `json"timestamp" binding:"required"`
 	}
 
+	c.JSON(200, gin.H{
+		"token":   "qweqaddsadas",
+		"success": "true",
+		"user_id": "nigga",
+	})
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{})
 		return
