@@ -4,3 +4,4 @@ non_static_room
 /external_services/dotenv-layer.zip
 /external_services/python
 .DS_Store
+not_commit_texts.txt

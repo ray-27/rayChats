@@ -26,9 +26,23 @@ func Login(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"token":   "qweqaddsadas",
-		"success": "true",
-		"user_id": "nigga",
+		"success": true,
+		"message": "Login successful",
+		"data": gin.H{
+			"jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDg4OTYxMTEsInVzZXJfaWQiOiI5NGU3NDM1Ny1jODU3LTRiMTctYWFkYS1hMzg4YWVmMzY2MDEifQ.rss3_AVik8VWLONr3tD-ylm9-zudkHpmf_4LYZBXS-Y",
+			"user": gin.H{
+				"user_id":       "12345",
+				"id":            "12345",
+				"name":          "John Doe",
+				"email":         "john.doe@gmail.com",
+				"profile_image": "https://lh3.googleusercontent.com/a/profile.jpg",
+				"created_at":    1704067200000,
+				"updated_at":    1704067200000,
+			},
+			"token_expires_at": 1704153600000,
+			"refresh_token":    "optional_refresh_token_here",
+		},
+		"timestamp": 1704067200000,
 	})
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{})
