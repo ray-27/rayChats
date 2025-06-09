@@ -51,7 +51,7 @@ func Login(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	authResponse, err := config.Client.AuthClient.GetUserData(ctx, &pb.Token{Token: "token"})
+	authResponse, err := config.Client.AuthClient.GetUserData(ctx, &pb.Token{Token: req.Token})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to get user details"})
 	}
