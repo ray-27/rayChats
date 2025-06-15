@@ -29,6 +29,7 @@ func main() {
 	handler.Handles(server.Router)
 
 	config.Client, err = config.NewGrpcManager("localhost:8080")
+	// config.Client, err = config.NewGrpcManager("api.resnight.tech")
 	if err != nil {
 		log.Fatalf("Failed to create gprc client manage: %v", err)
 	}

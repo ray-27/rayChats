@@ -59,7 +59,7 @@ func Login(c *gin.Context) {
 			"updated_at":    time.Now().Unix() * 1000,
 		},
 		"token_expires_at": time.Now().Add(24*time.Hour).Unix() * 1000,
-		"refresh_token":    "optional_refresh_token_here",
+		"refresh_token":    "",
 
 		"timestamp": time.Now().Unix() * 1000,
 	})
