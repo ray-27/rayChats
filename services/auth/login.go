@@ -37,7 +37,7 @@ func SignupCLI(c *gin.Context) {
 	}
 
 	// Save the new user
-	err := db.Store.SaveUserCredentials(newUser)
+	err := db.Valkey.SaveUserCredentialsCLI(newUser)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
@@ -50,9 +50,9 @@ func SignupCLI(c *gin.Context) {
 		return
 	}
 
-	// Store the token in Valkey with expiration
+	// Valkey the token in Valkey with expiration
 	tokenKey := "token:" + newUser.UUID
-	err = db.Store.Client.Set(db.Store.Ctx, tokenKey, token, 10*24*time.Hour).Err()
+	err = db.Valkey.Client.Set(db.Valkey.Ctx, tokenKey, token, 10*24*time.Hour).Err()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store token"})
 		return
@@ -77,7 +77,7 @@ func LoginCLI(c *gin.Context) {
 	}
 
 	// Check if the email already exists
-	existingUser, err := db.Store.GetUserByEmail(request.Email)
+	existingUser, err := db.Valkey.GetUserByEmailCLI(request.Email)
 	if err == nil && existingUser != nil {
 		// User exists, verify password
 		// In a real app, use bcrypt.CompareHashAndPassword for password comparison
@@ -93,9 +93,9 @@ func LoginCLI(c *gin.Context) {
 			return
 		}
 
-		// Store the token in Valkey with expiration
+		// Valkey the token in Valkey with expiration
 		tokenKey := "token:" + existingUser.UUID
-		err = db.Store.Client.Set(db.Store.Ctx, tokenKey, token, 10*24*time.Hour).Err()
+		err = db.Valkey.Client.Set(db.Valkey.Ctx, tokenKey, token, 10*24*time.Hour).Err()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store token"})
 			return
@@ -117,7 +117,7 @@ func LoginCLI(c *gin.Context) {
 		success, otp, err := CallLambdaSendOTP(request.Email)
 
 		if success {
-			db.Store.StoreOTP(request.Email, otp)
+			db.Valkey.StoreOTP(request.Email, otp)
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
@@ -134,7 +134,7 @@ func LoginCLI(c *gin.Context) {
 	// }
 
 	// // Save the new user
-	// err = db.Store.SaveUserCredentials(newUser)
+	// err = db.Valkey.SaveUserCredentials(newUser)
 	// if err != nil {
 	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 	// 	return
@@ -147,9 +147,9 @@ func LoginCLI(c *gin.Context) {
 	// 	return
 	// }
 
-	// // Store the token in Valkey with expiration
+	// // Valkey the token in Valkey with expiration
 	// tokenKey := "token:" + newUser.UUID
-	// err = db.Store.Client.Set(db.Store.Ctx, tokenKey, token, 10*24*time.Hour).Err()
+	// err = db.Valkey.Client.Set(db.Valkey.Ctx, tokenKey, token, 10*24*time.Hour).Err()
 	// if err != nil {
 	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store token"})
 	// 	return
@@ -173,14 +173,14 @@ func GetOTP(c *gin.Context) {
 		return
 	}
 
-	// getOTP, err := db.Store.GetOTP(req.Email)
+	// getOTP, err := db.Valkey.GetOTP(req.Email)
 	// if err != nil {
 	// 	c.JSON(http.StatusInternalServerError, gin.H{
 	// 		"error": err.Error(),
 	// 	})
 	// }
 
-	found, err := db.Store.VerifyAndDeleteOTP(req.Email, req.OTP)
+	found, err := db.Valkey.VerifyAndDeleteOTP(req.Email, req.OTP)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),

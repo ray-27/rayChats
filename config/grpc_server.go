@@ -17,6 +17,7 @@ type GrpcManager struct {
 }
 
 func NewGrpcManager(serverAdd string) (*GrpcManager, error) {
+	
 	conn, err := grpc.NewClient(serverAdd, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err

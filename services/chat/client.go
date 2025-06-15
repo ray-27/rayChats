@@ -28,7 +28,7 @@ const (
 )
 
 type Client struct {
-	ID       string
+	// ID       string
 	UserID   string
 	UserName string
 	Conn     *websocket.Conn
@@ -40,7 +40,7 @@ type Client struct {
 // NewClient creates a new chat client
 func NewClient(userID, userName string, conn *websocket.Conn, manager *ChatManager) *Client {
 	return &Client{
-		ID:       userID,
+		// ID:       userID,
 		UserID:   userID,
 		UserName: userName,
 		Conn:     conn,
@@ -142,11 +142,9 @@ func (c *Client) ReadPump() {
 				delete(c.Rooms, msg.RoomID)
 
 				if room, exists := c.Manager.GetRoom(msg.RoomID); exists {
+					c.Manager.mutex.Lock()
 					delete(room.ActiveMembers, c.UserID)
-					// Update Valkey
-					if err := c.Manager.Store.SetUserInactive(c.UserID, msg.RoomID); err != nil {
-						log.Printf("Error marking user inactive: %v", err)
-					}
+					c.Manager.mutex.Unlock()
 					// Notify other members
 					leaveMsg := &models.Message{
 						ID:        uuid.New().String(),

@@ -73,7 +73,7 @@ func AuthRequired() gin.HandlerFunc {
 	}
 }
 
-func ValidateToken(c *gin.Context) {
+func ValidateTokenCLI(c *gin.Context) {
 	// The AuthRequired middleware has already validated the token
 	// If we reach this handler, the token is valid
 
@@ -92,7 +92,7 @@ func ValidateToken(c *gin.Context) {
 	}
 
 	// Get user data from your database/store using the UUID
-	userData, err := db.Store.GetUserByUUID(userUUIDStr)
+	userData, err := db.Valkey.GetUserByUUIDCLI(userUUIDStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user data"})
 		return

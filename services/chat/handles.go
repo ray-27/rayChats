@@ -43,6 +43,7 @@ func HandleGetRoom(c *gin.Context) {
 		"name":           room.Name,
 		"is_private":     room.IsPrivate,
 		"active_members": len(room.ActiveMembers),
+		"total_members":  len(room.AuthorizedMembers),
 	})
 }
 
@@ -55,7 +56,8 @@ func HandleCreateRoom(c *gin.Context) {
 	var req struct {
 		RoomName    string   `json:"roomname" binding:"required"`
 		GuestEmails []string `json:"guest_emails" binding:"required,dive,email"`
-		IsPrivate   bool     `json:"is_private"`
+		// GuestPhone	[]string `json:"guest_emails" binding:"required,dive,email"`
+		IsPrivate bool `json:"is_private"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -79,14 +81,14 @@ func HandleCreateRoom(c *gin.Context) {
 	// Add each guest user to the room
 	for _, email := range req.GuestEmails {
 		// Get guest user UUID by email
-		guestUUID, err := db.Store.GetUserUUIDByEmail(email)
+		guestUUID, err := db.Valkey.GetUserUUIDByEmail(email)
 		if err != nil {
 			failedUsers = append(failedUsers, email)
 			continue
 		}
 
 		// Add guest user as authorized member
-		if err := db.Store.AddUserToRoom(guestUUID, room.ID); err != nil {
+		if err := db.Valkey.AddUserToRoom(guestUUID, room.ID); err != nil {
 			failedUsers = append(failedUsers, email)
 			continue
 		}
@@ -132,7 +134,7 @@ func HandleAddUsertoRoom(c *gin.Context) {
 	requestingUserUUIDStr := requestingUserUUID.(string)
 
 	// Check if requesting user is admin of the room using existing function
-	isAdmin, err := db.Store.IsUserAdmin(requestingUserUUIDStr, req.RoomID)
+	isAdmin, err := db.Valkey.IsUserAdmin(requestingUserUUIDStr, req.RoomID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check admin status"})
 		return
@@ -144,7 +146,7 @@ func HandleAddUsertoRoom(c *gin.Context) {
 	}
 
 	// Get user UUID by email using existing function
-	userUUID, err := db.Store.GetUserUUIDByEmail(req.UserEmail)
+	userUUID, err := db.Valkey.GetUserUUIDByEmail(req.UserEmail)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "User not found with email: " + req.UserEmail,
@@ -154,9 +156,9 @@ func HandleAddUsertoRoom(c *gin.Context) {
 
 	// Add user to room using existing functions
 	if req.MakeAdmin {
-		err = db.Store.AddAdminToRoom(userUUID, req.RoomID)
+		err = db.Valkey.AddAdminToRoom(userUUID, req.RoomID)
 	} else {
-		err = db.Store.AddUserToRoom(userUUID, req.RoomID)
+		err = db.Valkey.AddUserToRoom(userUUID, req.RoomID)
 	}
 
 	if err != nil {
@@ -188,7 +190,7 @@ func HandleListRooms(c *gin.Context) {
 	userUUIDStr := userUUID.(string)
 
 	// Get rooms for user from Valkey
-	rooms, err := db.Store.GetRoomsForUser(userUUIDStr)
+	rooms, err := db.Valkey.GetRoomsForUser(userUUIDStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to retrieve rooms",
@@ -202,7 +204,7 @@ func HandleListRooms(c *gin.Context) {
 		isAdmin := room.Admins != nil && room.Admins[userUUIDStr] //to see of the user is the admin
 
 		// Get active users count
-		activeUsers, err := db.Store.GetActiveUsers(room.ID)
+		activeUsers, err := db.Valkey.GetActiveUsers(room.ID)
 		activeCount := 0
 		if err == nil {
 			activeCount = len(activeUsers)
@@ -248,40 +250,6 @@ func HandleWebSocket(c *gin.Context) {
 	HandleWebSocketConnection(userID, userName, conn)
 }
 
-// func HandleAddUsertoRoom(c *gin.Context) {
-// 	var req struct {
-// 		UserID        string `json:"uuid" binding:"required"`     //senders uuid, admin
-// 		RoomID        string `json:"roomname" binding:"required"` //room_id to add user to
-// 		SecondUser_id string `json:"guest" binding:"required"`    //guest user to add to the room
-// 		IsPrivate     bool   `json:"is_private"`
-// 	}
-
-// 	if err := c.ShouldBindJSON(&req); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-// 		return
-// 	}
-// 	userID := req.UserID
-
-// 	// Use the exported CreateRoom function, this creates a room with the user who created it
-// 	// AddAuthorizedMember
-// 	// room := CreateRoom(req.RoomName, userID, req.IsPrivate)
-
-// 	//add the guest user
-// 	success := AddAuthorizedMember(req.RoomID, req.SecondUser_id, userID)
-
-// 	if !success {
-// 		c.JSON(http.StatusInternalServerError, gin.H{
-// 			"error": "Erro occured in the HAnDLECREAateROOM",
-// 		})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusCreated, gin.H{
-// 		"user":    req.SecondUser_id,
-// 		"message": "successfuly added user to the room",
-// 	})
-// }
-
 // RegisterChatRoutes registers all chat-related routes
 func RegisterChatRoutes(router *gin.Engine) {
 	chatGroup := router.Group("/chat")
@@ -294,28 +262,3 @@ func RegisterChatRoutes(router *gin.Engine) {
 		chatGroup.GET("/ws", HandleWebSocket)
 	}
 }
-
-// func AuthorizationMiddleWare() gin.HandlerFunc {
-// 	return func(c *gin.Context) {
-// 		authHeader := c.GetHeader("Authorization")
-// 		if authHeader == "" {
-// 			c.JSON(http.StatusUnauthorized, gin.H{
-// 				"error": "Authorization header is required",
-// 			})
-// 			c.Abort()
-// 			return
-// 		}
-
-// 		// Check for Bearer prefix
-// 		tokenParts := strings.Split(authHeader, "Bearer ")
-// 		if len(tokenParts) != 2 {
-// 			c.JSON(http.StatusUnauthorized, gin.H{
-// 				"error": "Authorization header must be in format 'Bearer {token}'",
-// 			})
-// 			c.Abort()
-// 			return
-// 		}
-
-// 		c.Set("userID", )
-// 	}
-// }

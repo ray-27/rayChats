@@ -2,7 +2,6 @@ package chat
 
 import (
 	"log"
-	db "raychat/database"
 	"raychat/models"
 	"sync"
 )
@@ -16,25 +15,31 @@ It maintains:
 - Channels for communication between different parts of the system
 */
 type ChatManager struct {
-	Rooms      map[string]*models.Room
+	Rooms      map[string]*Room
 	Clients    map[string]*Client //client are the users which are online
 	Broadcast  chan *models.Message
 	Register   chan *Client
 	Unregister chan *Client
 	mutex      sync.RWMutex
-	Store      *db.ValkeyChatStore
+	// Store      *db.ValkeyChatStore
 }
 
 // NewChatManager creates a new chat manager
 func NewChatManager() *ChatManager {
-	return &ChatManager{
-		Rooms:      make(map[string]*models.Room),
+	cm := &ChatManager{
+		Rooms:      make(map[string]*Room),
 		Clients:    make(map[string]*Client),
 		Broadcast:  make(chan *models.Message),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
-		Store:      db.Store,
 	}
+
+	// Load rooms using database package
+	if err := cm.loadAllRooms(); err != nil {
+		log.Printf("Error loading rooms: %v", err)
+	}
+
+	return cm
 }
 
 func (cm *ChatManager) Start() {
@@ -43,31 +48,31 @@ func (cm *ChatManager) Start() {
 	for {
 		select {
 		case client := <-cm.Register: //client is recieved from the Register channel
-			log.Printf("Registering client: %s", client.ID)
+			log.Printf("Registering client: %s", client.UserID)
 			cm.mutex.Lock()
-			cm.Clients[client.ID] = client //adds to the Client map
+			cm.Clients[client.UserID] = client //adds to the Client map
 			cm.mutex.Unlock()
 
 		case client := <-cm.Unregister:
-			log.Printf("Unregistering client: %s", client.ID)
+			log.Printf("Unregistering client: %s", client.UserID)
 			cm.mutex.Lock()
-			if _, exists := cm.Clients[client.ID]; exists { //if client exists then remove it from all the rooms
+			if _, exists := cm.Clients[client.UserID]; exists { //if client exists then remove it from all the rooms
 
 				//Remove client from all rooms
 				for roomID := range client.Rooms {
 					if room, exists := cm.Rooms[roomID]; exists {
 						delete(room.ActiveMembers, client.UserID) //delete from the room
 						// Update Valkey
-						if err := cm.Store.SetUserInactive(client.UserID, roomID); err != nil {
-							log.Printf("Error marking user inactive: %v", err)
-						}
+						// if err := cm.Store.SetUserInactive(client.UserID, roomID); err != nil {
+						// 	log.Printf("Error marking user inactive: %v", err)
+						// }
 						log.Printf("Removed Client %s, from room %s", client.UserID, roomID)
 					}
 				}
 
 				//Close send channel and delete Client
 				close(client.Send)
-				delete(cm.Clients, client.ID)
+				delete(cm.Clients, client.UserID)
 			}
 			cm.mutex.Unlock()
 
@@ -81,19 +86,27 @@ func (cm *ChatManager) Start() {
 				log.Printf("Broadcasting message to room %s with %d members", message.RoomID, len(room.ActiveMembers))
 
 				//Send Message to all the members in the room
-				for userID := range room.ActiveMembers {
-					//Find all the clients for this user
-					for _, client := range cm.Clients {
-						if client.UserID == userID {
-							select {
-							case client.Send <- message:
-								// Message sent successfuly, the message is sent through a channel that is read by the WritePump() function
-							default:
-								// Client's buffer is full, close connection
-								close(client.Send)
-								delete(cm.Clients, client.ID)
-							}
+				for userID := range room.AuthorizedMembers {
+
+					//check if the user is currently online
+					if client, isActive := room.ActiveMembers[userID]; isActive {
+
+						//Find all the clients for this user
+						select {
+						case client.Send <- message:
+
+						default:
+							// Client's buffer is full, clean up
+							cm.mutex.Lock()
+							delete(room.ActiveMembers, userID)
+							close(client.Send)
+							delete(cm.Clients, client.UserID)
+							cm.mutex.Unlock()
 						}
+
+					} else {
+						//User offline
+						//make a fucntion to send the message later
 					}
 				}
 				log.Printf("Message broadcast complete")
@@ -102,14 +115,31 @@ func (cm *ChatManager) Start() {
 	}
 }
 
+func (cm *ChatManager) loadAllRooms() error {
+	rooms, err := LoadAllRoomsWithMembersFromValkey()
+	if err != nil {
+		return err
+	}
+
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	for _, room := range rooms {
+		cm.Rooms[room.ID] = room
+	}
+
+	log.Printf("Loaded %d rooms from database", len(rooms))
+	return nil
+}
+
 // CreateRoom creates a new chat room
-func (cm *ChatManager) CreateRoom(name string, creatorID string, isPrivate bool) *models.Room {
+func (cm *ChatManager) CreateRoom(name string, creatorID string, isPrivate bool) *Room {
 	room := NewRoom(name, creatorID, isPrivate)
 
 	// Initialize maps
 	room.AuthorizedMembers = make(map[string]bool)
 	room.Admins = make(map[string]bool)
-	room.ActiveMembers = make(map[string]bool)
+	room.ActiveMembers = make(map[string]*Client)
 
 	// Creator is both admin and authorized member
 	room.AuthorizedMembers[creatorID] = true
@@ -120,23 +150,23 @@ func (cm *ChatManager) CreateRoom(name string, creatorID string, isPrivate bool)
 	cm.mutex.Unlock()
 
 	// Save room to Valkey using existing function
-	if err := cm.Store.SaveRoom(room); err != nil {
-		log.Printf("Error saving room to Valkey: %v", err)
-	} else {
-		log.Printf("Room saved to persistent storage: %s", room.ID)
-	}
+	// if err := cm.Store.SaveRoom(room); err != nil {
+	// 	log.Printf("Error saving room to Valkey: %v", err)
+	// } else {
+	// 	log.Printf("Room saved to persistent storage: %s", room.ID)
+	// }
 
-	// Add creator as admin using existing functions
-	if err := cm.Store.AddAdminToRoom(creatorID, room.ID); err != nil {
-		log.Printf("Error adding creator as admin to room in Valkey: %v", err)
-	}
+	// // Add creator as admin using existing functions
+	// if err := cm.Store.AddAdminToRoom(creatorID, room.ID); err != nil {
+	// 	log.Printf("Error adding creator as admin to room in Valkey: %v", err)
+	// }
 
 	log.Printf("Created room: %s, creator: %s", room.ID, creatorID)
 	return room
 }
 
 // GetRoom returns a room by ID
-func (cm *ChatManager) GetRoom(roomID string) (*models.Room, bool) {
+func (cm *ChatManager) GetRoom(roomID string) (*Room, bool) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
@@ -156,33 +186,24 @@ func (cm *ChatManager) JoinRoom(roomID, userID string) bool {
 
 	// Check if the room is private and if the user is authorized
 	if room.IsPrivate {
-		// Check if user is authorized
-		authorized, err := db.Store.IsUserAuthorizedForRoom(userID, roomID)
-		if err != nil || !authorized {
-			if _, ok := room.AuthorizedMembers[userID]; !ok {
-				log.Printf("User %s not authorized for private room %s", userID, roomID)
-				return false
-			}
+		if _, ok := room.AuthorizedMembers[userID]; !ok {
+			log.Printf("User %s not authorized for private room %s", userID, roomID)
+			return false
+		}
+	} else {
+		// Add to authorized members if not already (for public rooms)
+		if _, ok := room.AuthorizedMembers[userID]; !ok {
+			room.AuthorizedMembers[userID] = true
 		}
 	}
 
-	// Add to authorized members if not already
-	if _, ok := room.AuthorizedMembers[userID]; !ok {
-		room.AuthorizedMembers[userID] = true
-
-		// Update in Valkey
-		if err := db.Store.AddUserToRoom(userID, roomID); err != nil {
-			log.Printf("Error adding user to room in Valkey: %v", err)
-		}
+	userClient, exists := cm.Clients[userID]
+	if !exists {
+		log.Println("No active client found for user %s", userID)
+		return false
 	}
-
 	// Add to active members
-	room.ActiveMembers[userID] = true
-
-	// Update in Valkey
-	if err := db.Store.SetUserActive(userID, roomID); err != nil {
-		log.Printf("Error setting user active in Valkey: %v", err)
-	}
+	room.ActiveMembers[userID] = userClient
 
 	log.Printf("User %s joined room %s, room now has %d active members",
 		userID, roomID, len(room.ActiveMembers))

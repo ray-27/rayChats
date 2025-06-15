@@ -37,7 +37,7 @@ func Handles(router *gin.Engine) {
 	cliGroup := router.Group("/cli")
 	cliGroup.Use(auth.AuthRequired())
 	{
-		cliGroup.GET("/validatetoken", auth.ValidateToken)
+		cliGroup.GET("/validatetoken", auth.ValidateTokenCLI)
 		cliGroup.GET("/userinfo", auth.GetUserInfo)
 	}
 

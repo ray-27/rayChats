@@ -9,18 +9,18 @@ import (
 
 func NewUser(username string) *models.User {
 	return &models.User{
-		ID:       uuid.New().String(),
-		UserName: username,
+		UUID: uuid.New().String(),
+		Name: username,
 	}
 }
 
-func NewRoom(name string, cretorID string, isPrivate bool) *models.Room {
-	return &models.Room{
+func NewRoom(name string, cretorID string, isPrivate bool) *Room {
+	return &Room{
 		ID:                uuid.New().String(),
 		Name:              name,
 		CreatorID:         cretorID,
 		AuthorizedMembers: map[string]bool{cretorID: true}, //Add cretor as the first member
-		ActiveMembers:     make(map[string]bool),           //Initially empty
+		ActiveMembers:     make(map[string]*Client),        //Initially empty
 		Admins:            map[string]bool{cretorID: true}, //Creator is automatically an admin
 		IsPrivate:         isPrivate,
 		CreatedAt:         time.Now(),
