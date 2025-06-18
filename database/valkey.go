@@ -3,9 +3,7 @@ package db
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"strings"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -20,9 +18,9 @@ func NewValkeyChatStore(addr string, password string, db int) *ValkeyChatStore {
 		Addr:     addr,
 		Password: password,
 		DB:       db, // Use a specific DB to isolate your chat app
-		TLSConfig: &tls.Config{
-			ServerName: strings.Split(addr, ":")[0],
-		},
+		// TLSConfig: &tls.Config{
+		// 	ServerName: strings.Split(addr, ":")[0],
+		// },
 	})
 
 	return &ValkeyChatStore{

@@ -23,7 +23,7 @@ func main() {
 	db.DB_init()
 	println("Database init done.")
 
-	chat.Chat_init()
+	chat.Chat_init() 
 
 	// Set up HTTP routes
 	handler.Handles(server.Router)

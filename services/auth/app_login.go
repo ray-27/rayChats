@@ -39,11 +39,8 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// c.JSON(http.StatusOK, gin.H{
-	// 	"ID":    authResponse.GetId(),
-	// 	"Name":  authResponse.GetName(),
-	// 	"Email": authResponse.GetEmail(),
-	// })
+	//check if the user exists in the database, 
+	
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Login successful",
