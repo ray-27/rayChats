@@ -3,6 +3,7 @@ package chat
 
 import (
 	"log"
+	"raychat/models"
 
 	"github.com/gorilla/websocket"
 )
@@ -29,8 +30,13 @@ func GetRoom(roomID string) (*Room, bool) {
 }
 
 // CreateRoom creates a new chat room
-func CreateRoom(name string, creatorID string, isPrivate bool) *Room {
-	return manager.CreateRoom(name, creatorID, isPrivate)
+// func CreateRoom(name string, creatorID string, isPrivate bool) *Room {
+// 	return manager.CreateRoom(name, creatorID, isPrivate)
+// }
+
+func CreateRoom(roomID string, roomInfo *models.RoomInfo) (*Room, error) {
+	room := manager.CreateRoom(roomID, roomInfo.Name, roomInfo.CreatorID, roomInfo.IsPrivate)
+	return room, nil
 }
 
 // JoinRoom adds a user to a room if they are authorized

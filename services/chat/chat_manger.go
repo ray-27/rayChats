@@ -133,8 +133,10 @@ func (cm *ChatManager) loadAllRooms() error {
 }
 
 // CreateRoom creates a new chat room
-func (cm *ChatManager) CreateRoom(name string, creatorID string, isPrivate bool) *Room {
-	room := NewRoom(name, creatorID, isPrivate)
+func (cm *ChatManager) CreateRoom(roomId, name string, creatorID string, isPrivate bool) *Room {
+	//This function will create a room and add it to the Chat Manager
+
+	room := NewRoom(roomId, name, creatorID, isPrivate)
 
 	// Initialize maps
 	room.AuthorizedMembers = make(map[string]bool)
@@ -148,18 +150,6 @@ func (cm *ChatManager) CreateRoom(name string, creatorID string, isPrivate bool)
 	cm.mutex.Lock()
 	cm.Rooms[room.ID] = room
 	cm.mutex.Unlock()
-
-	// Save room to Valkey using existing function
-	// if err := cm.Store.SaveRoom(room); err != nil {
-	// 	log.Printf("Error saving room to Valkey: %v", err)
-	// } else {
-	// 	log.Printf("Room saved to persistent storage: %s", room.ID)
-	// }
-
-	// // Add creator as admin using existing functions
-	// if err := cm.Store.AddAdminToRoom(creatorID, room.ID); err != nil {
-	// 	log.Printf("Error adding creator as admin to room in Valkey: %v", err)
-	// }
 
 	log.Printf("Created room: %s, creator: %s", room.ID, creatorID)
 	return room

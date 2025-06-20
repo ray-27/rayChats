@@ -41,11 +41,16 @@ func Handles(router *gin.Engine) {
 		cliGroup.GET("/userinfo", auth.GetUserInfo)
 	}
 
-	router.POST("app/login", auth.Login)
-	// app := router.Group("/app")
-	// {
+	// router.POST("app/login", auth.Login)
+	// // app := router.Group("/app")
+	// // {
 
-	// }
+	// // }
+
+	crossServer := router.Group("/internal")
+	{
+		crossServer.POST("/createRoom", chat.CreateRoomHandle)
+	}
 
 	chat.RegisterChatRoutes(router)
 }

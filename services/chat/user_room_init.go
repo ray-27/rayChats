@@ -14,9 +14,9 @@ func NewUser(username string) *models.User {
 	}
 }
 
-func NewRoom(name string, cretorID string, isPrivate bool) *Room {
+func NewRoom(roomId, name string, cretorID string, isPrivate bool) *Room {
 	return &Room{
-		ID:                uuid.New().String(),
+		ID:                roomId,
 		Name:              name,
 		CreatorID:         cretorID,
 		AuthorizedMembers: map[string]bool{cretorID: true}, //Add cretor as the first member

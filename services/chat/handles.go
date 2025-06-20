@@ -3,6 +3,7 @@ package chat
 
 import (
 	"net/http"
+	"raychat/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -33,6 +34,51 @@ func HandleWebSocket(c *gin.Context) {
 
 	// Use the exported HandleWebSocketConnection function
 	HandleWebSocketConnection(userID, userName, conn)
+}
+
+func CreateRoomHandle(c *gin.Context) {
+	var req models.CreateRoomRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.CreateRoomResponse{
+			Success: false,
+			Message: "Invalid request data: " + err.Error(),
+		})
+		return
+	}
+
+	// Generate unique room ID
+	roomID := req.RoomCode
+	roomData := req.Roominfo
+
+	//create a room
+	_, err := CreateRoom(roomID, &roomData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.CreateRoomResponse{
+			Success: false,
+			Message: "Unable to create the Room in backend, \nerror: %v " + err.Error(),
+		})
+		return
+	}
+	//Room is created and added to tha chatmanger, only the name,roomID, and private information is added
+
+	//store the room info in valkey
+	err = StoreRoomInValkey(roomID, roomData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.CreateRoomResponse{
+			Success: false,
+			Message: "Unable to store the Room info in Valkey, \nerror: %v " + err.Error(),
+		})
+		return
+	}
+
+	//send ok response
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Successfuly creatd the room initial informaion",
+	})
+
+	
 }
 
 // HandleGetRoom gets details about a specific room
