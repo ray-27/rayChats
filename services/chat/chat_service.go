@@ -49,8 +49,13 @@ func LeaveRoom(roomID, userID string) bool {
 	return manager.LeaveRoom(roomID, userID)
 }
 
-// AddAuthorizedMember adds a user to the authorized members list
-func AddAuthorizedMember(roomID, userID, requestedByID string) bool {
+// this will add user without any restriction
+func AddAuthorizedMemberUnrestricted(roomID, userID, requestedByID string) error {
+	return manager.AddAuthorizedMemberUnrestricted(roomID, userID, requestedByID)
+}
+
+// this is strict Add members function, this will need the requeste by ID(admin ID) for adding the user
+func AddAuthorizedMember(roomID, userID, requestedByID string) error {
 	return manager.AddAuthorizedMember(roomID, userID, requestedByID)
 }
 

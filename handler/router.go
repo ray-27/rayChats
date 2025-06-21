@@ -50,6 +50,7 @@ func Handles(router *gin.Engine) {
 	crossServer := router.Group("/internal")
 	{
 		crossServer.POST("/createRoom", chat.CreateRoomHandle)
+		crossServer.POST("/addusertoroom", chat.AddUsertoRoom)
 	}
 
 	chat.RegisterChatRoutes(router)

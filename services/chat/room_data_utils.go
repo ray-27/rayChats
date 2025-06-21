@@ -122,3 +122,78 @@ func LoadRoomFromValkey(roomID string) (*Room, error) {
 
 	return room, nil
 }
+
+func AddUserToRoomAuthMembers(roomID, userID string) error {
+	authKey := fmt.Sprintf("chat:room:%s:auth", roomID)
+
+	// Add user to authorized members set
+	err := db.Valkey.Client.SAdd(db.Valkey.Ctx, authKey, userID).Err()
+	if err != nil {
+		return fmt.Errorf("failed to add user to authorized members: %w", err)
+	}
+
+	// Reset expiration to maintain consistency
+	db.Valkey.Client.Expire(db.Valkey.Ctx, authKey, 24*time.Hour)
+
+	return nil
+}
+
+// Remove user from authorized members
+func RemoveUserFromRoomAuthMembers(roomID, userID string) error {
+	authKey := fmt.Sprintf("chat:room:%s:auth", roomID)
+
+	err := db.Valkey.Client.SRem(db.Valkey.Ctx, authKey, userID).Err()
+	if err != nil {
+		return fmt.Errorf("failed to remove user from authorized members: %w", err)
+	}
+
+	return nil
+}
+
+// Check if user is authorized member
+func IsUserAuthorizedMember(roomID, userID string) (bool, error) {
+	authKey := fmt.Sprintf("chat:room:%s:auth", roomID)
+
+	exists, err := db.Valkey.Client.SIsMember(db.Valkey.Ctx, authKey, userID).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check user authorization: %w", err)
+	}
+
+	return exists, nil
+}
+
+// Get all authorized members of a room
+func GetRoomAuthMembers(roomID string) ([]string, error) {
+	authKey := fmt.Sprintf("chat:room:%s:auth", roomID)
+
+	members, err := db.Valkey.Client.SMembers(db.Valkey.Ctx, authKey).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get authorized members: %w", err)
+	}
+
+	return members, nil
+}
+
+// Add user as admin (also adds to authorized members)
+func AddUserAsRoomAdmin(roomID, userID string) error {
+	authKey := fmt.Sprintf("chat:room:%s:auth", roomID)
+	adminsKey := fmt.Sprintf("chat:room:%s:admins", roomID)
+
+	// Add to authorized members first
+	err := db.Valkey.Client.SAdd(db.Valkey.Ctx, authKey, userID).Err()
+	if err != nil {
+		return fmt.Errorf("failed to add user to authorized members: %w", err)
+	}
+
+	// Add to admins
+	err = db.Valkey.Client.SAdd(db.Valkey.Ctx, adminsKey, userID).Err()
+	if err != nil {
+		return fmt.Errorf("failed to add user to admins: %w", err)
+	}
+
+	// Reset expiration
+	db.Valkey.Client.Expire(db.Valkey.Ctx, authKey, 24*time.Hour)
+	db.Valkey.Client.Expire(db.Valkey.Ctx, adminsKey, 24*time.Hour)
+
+	return nil
+}

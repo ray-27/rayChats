@@ -2,6 +2,7 @@
 package chat
 
 import (
+	"log"
 	"net/http"
 	"raychat/models"
 
@@ -78,7 +79,44 @@ func CreateRoomHandle(c *gin.Context) {
 		"message": "Successfuly creatd the room initial informaion",
 	})
 
-	
+}
+
+func AddUsertoRoom(c *gin.Context) {
+
+	var req models.AddUserToRoomPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.CreateRoomResponse{
+			Success: false,
+			Message: "Invalid request data: " + err.Error(),
+		})
+		return
+	}
+
+	err := AddAuthorizedMemberUnrestricted(req.RoomCode, req.UserID, "")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Error add the user to the chat manager server",
+		})
+		return
+	}
+
+	//add the user to the room
+	err = AddUserToRoomAuthMembers(req.RoomCode, req.UserID)
+	if err != nil {
+		log.Printf("Failed to add user to authorized members: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "Failed to join room",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Successfuly added user to the room",
+	})
+
 }
 
 // HandleGetRoom gets details about a specific room

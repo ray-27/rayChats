@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"fmt"
 	"log"
 	"raychat/models"
 	"sync"
@@ -201,14 +202,30 @@ func (cm *ChatManager) JoinRoom(roomID, userID string) bool {
 	return true
 }
 
-// AddAuthorizedMember adds a user to the authorized members list
-func (cm *ChatManager) AddAuthorizedMember(roomID, userID, requestedByID string) bool {
+func (cm *ChatManager) AddAuthorizedMemberUnrestricted(roomID, userID, requestedByID string) error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
 	room, exists := cm.Rooms[roomID]
 	if !exists {
-		return false
+		return fmt.Errorf("room does not exists")
+	}
+
+	room.AuthorizedMembers[userID] = true
+	log.Printf("User %s added to authorized members of room %s by %s",
+		userID, roomID, requestedByID)
+
+	return nil
+}
+
+// AddAuthorizedMember adds a user to the authorized members list
+func (cm *ChatManager) AddAuthorizedMember(roomID, userID, requestedByID string) error {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	room, exists := cm.Rooms[roomID]
+	if !exists {
+		return fmt.Errorf("room does not exists")
 	}
 
 	// Check if the requesting user has permission (owner or admin)
@@ -216,14 +233,14 @@ func (cm *ChatManager) AddAuthorizedMember(roomID, userID, requestedByID string)
 	if !room.Admins[requestedByID] { // only check if the admin has sent the request
 		log.Printf("User %s attempted to add member to room %s but lacks permission",
 			requestedByID, roomID)
-		return false
+		return fmt.Errorf("Unauthorized to get added to the room")
 	}
 
 	room.AuthorizedMembers[userID] = true
 	log.Printf("User %s added to authorized members of room %s by %s",
 		userID, roomID, requestedByID)
 
-	return true
+	return nil
 }
 
 // RemoveAuthorizedMember removes a user from the authorized members list
